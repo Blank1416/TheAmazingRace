@@ -60,7 +60,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': 'djangoYL',
         'USER': 'admin',
-        'PASSWORD': '123'
+        'PASSWORD': '123',
         'HOST': 'localhost',
         'PORT': ' '
     }
