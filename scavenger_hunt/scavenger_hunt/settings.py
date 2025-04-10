@@ -9,7 +9,7 @@ SECRET_KEY = 'django-insecure-whme7%2^u6=kqdok2!77in4)jigep%bt2ljnn7hk-tu4fub1eq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['50.112.247.1', 'localhost']
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -18,7 +18,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'hunt',
+    'hunt.apps.HuntConfig',
     'channels',
 ]
 
@@ -58,11 +58,7 @@ WSGI_APPLICATION = 'scavenger_hunt.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'djangoYL',
-        'USER': 'admin',
-        'PASSWORD': '123',
-        'HOST': 'localhost',
-        'PORT': ' '
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -111,3 +107,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# Custom error views
+CSRF_FAILURE_VIEW = 'hunt.views.csrf_failure'

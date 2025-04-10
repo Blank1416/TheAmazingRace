@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Young Life{% endblock %}</title>
+    <title>{% block title %}Scavenger Hunt{% endblock %}</title>
+    {% block head_extras %}{% endblock %}
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #003A5B;
+            background-color: #f0f2f5;
             color: gray;
             text-align: center;
             min-height: 100vh;
@@ -20,7 +21,7 @@
         .app-content {
             width: 100%;
             min-height: 100vh;
-            background-image: url('{% static "hunt/images/YoungLifeLogo.png" %}');
+            background-color: #003A5B;
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -29,18 +30,6 @@
             align-items: center;
             padding: 20px;
             box-sizing: border-box;
-        }
-
-        header {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 0;
-        }
-
-        header img {
-            max-width: 400px;
-            height: auto;
-            margin: 10px 0 0 0;
         }
 
         .welcome-text {
@@ -72,17 +61,25 @@
             font-weight: bold;
             font-size: 0.95rem;
             transition: all 0.3s ease;
-            background: linear-gradient(135deg, #FFA500, #FF7F00);
+            background: linear-gradient(135deg, #90C83C, #7AAF2F);
             color: white;
             border: none;
             cursor: pointer;
         }
 
         .btn:hover {
-            background: linear-gradient(135deg, #FF7F00, #FF4500);
+            background: linear-gradient(135deg, #7AAF2F, #618825);
             transform: scale(1.05);
             text-decoration: none;
             color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #90C83C, #7AAF2F);
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #7AAF2F, #618825);
         }
 
         .btn.w-100 {
@@ -252,15 +249,15 @@
         }
 
         .home-btn:hover {
-            background: linear-gradient(135deg, #7AAF2F, #648F26);
+            background: linear-gradient(135deg, #7AAF2F, #618825);
         }
 
         .change-team-btn {
-            background: linear-gradient(135deg, #FFA500, #FF7F00);
+            background: linear-gradient(135deg, #90C83C, #7AAF2F);
         }
 
         .change-team-btn:hover {
-            background: linear-gradient(135deg, #FF7F00, #FF4500);
+            background: linear-gradient(135deg, #7AAF2F, #618825);
         }
 
         @media (max-width: 768px) {
@@ -270,14 +267,8 @@
         }
     </style>
 </head>
-<body>
+<body {% block body_attributes %}{% endblock %}>
     <div class="app-content">
-        <header>
-            {% block header %}
-                <img src="{% static 'hunt/images/YoungLifeLogo.png' %}" alt="Young Life Logo">
-            {% endblock %}
-        </header>
-
         <div class="welcome-text">
             {% block welcome_text %}{% endblock %}
         </div>
@@ -286,5 +277,15 @@
             {% block content %}{% endblock %}
         </div>
     </div>
+
+    {% block scripts %}
+    <script src="{% static 'hunt/js/jquery-3.6.0.min.js' %}"></script>
+    <script src="{% static 'hunt/js/bootstrap.min.js' %}"></script>
+    <!-- Common site-wide JavaScript -->
+    <script src="{% static 'hunt/js/common.js' %}"></script>
+    {% endblock %}
+
+    {% block additional_styles %}
+    {% endblock %}
 </body>
 </html>

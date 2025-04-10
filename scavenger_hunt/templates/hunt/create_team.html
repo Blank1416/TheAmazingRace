@@ -8,6 +8,7 @@
             <h1>Create Your Team</h1>
             <div class="lobby-info">
                 <p><strong>Lobby:</strong> {{ lobby.name }}</p>
+                <p><strong>Lobby Code:</strong> <span class="code-badge">{{ lobby.code }}</span></p>
                 <p><strong>Race:</strong> {{ lobby.race.name }}</p>
             </div>
         </div>
@@ -39,12 +40,36 @@
         </div>
 
         <div class="back-button-container">
-            <a href="{% url 'lobby_details' lobby.id %}" class="btn btn-success">
-                <i class="fas fa-arrow-left"></i> Back to Lobby
+            <a href="{% url 'join_team' %}" class="btn btn-success back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Teams
             </a>
         </div>
     </div>
 </div>
+
+<script>
+// Clear Django messages after displaying them
+document.addEventListener('DOMContentLoaded', function() {
+    // Find all message alerts
+    const messageAlerts = document.querySelectorAll('.alert');
+    
+    // If there are messages, set a timeout to fade them out
+    if (messageAlerts.length > 0) {
+        setTimeout(function() {
+            messageAlerts.forEach(function(alert) {
+                // Add fade-out effect
+                alert.style.transition = 'opacity 1s';
+                alert.style.opacity = '0';
+                
+                // Remove from DOM after fade completes
+                setTimeout(function() {
+                    alert.remove();
+                }, 1000);
+            });
+        }, 5000); // Display for 5 seconds before fading
+    }
+});
+</script>
 
 <style>
 .dashboard-box {
@@ -79,6 +104,14 @@
 
 .lobby-info strong {
     color: #90C83C;
+}
+
+.code-badge {
+    background: rgba(144, 200, 60, 0.2);
+    color: #90C83C;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: bold;
 }
 
 .teams-section {
@@ -174,6 +207,21 @@ input[type="text"]:focus {
     text-align: center;
     margin: 30px 0;
     padding: 20px;
+}
+
+.back-btn {
+    background: linear-gradient(135deg, #90C83C, #7AAF2F);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.back-btn:hover {
+    background: linear-gradient(135deg, #7AAF2F, #62902E);
+    transform: translateY(-2px);
 }
 </style>
 {% endblock %} 

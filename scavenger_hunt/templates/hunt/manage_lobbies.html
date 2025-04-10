@@ -11,7 +11,7 @@
         <h2 class="section-title">Active Lobbies</h2>
         <div class="lobbies-grid">
             {% for lobby in lobbies %}
-            <div class="lobby-card">
+            <div class="lobby-card" data-lobby-id="{{ lobby.id }}">
                 <button class="delete-lobby-btn" onclick="confirmDeleteLobby({{ lobby.id }})">
                     <i class="fas fa-times"></i>
                 </button>
@@ -426,37 +426,126 @@ function showCreateForm() {
     window.location.href = "{% url 'create_lobby' %}";
 }
 
-function startRace(lobbyId) {
-    // Create WebSocket connection
-    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const raceSocket = new WebSocket(
-        ws_scheme + '://' + window.location.host + '/ws/race/' + lobbyId + '/'
-    );
+// Add the showMessage function to display notifications
+function showMessage(message, type = 'info') {
+    // Create notification element
+    const notificationEl = document.createElement('div');
+    notificationEl.style.position = 'fixed';
+    notificationEl.style.top = '10px';
+    notificationEl.style.left = '50%';
+    notificationEl.style.transform = 'translateX(-50%)';
+    notificationEl.style.padding = '10px 20px';
+    notificationEl.style.borderRadius = '5px';
+    notificationEl.style.zIndex = '9999';
+    notificationEl.innerHTML = message;
+    
+    // Set colors based on message type
+    if (type === 'success') {
+        notificationEl.style.background = 'rgba(144, 200, 60, 0.9)';
+        notificationEl.style.color = '#fff';
+    } else if (type === 'error') {
+        notificationEl.style.background = 'rgba(220, 53, 69, 0.9)';
+        notificationEl.style.color = '#fff';
+    } else {
+        notificationEl.style.background = 'rgba(52, 152, 219, 0.9)';
+        notificationEl.style.color = '#fff';
+    }
+    
+    // Add to document
+    document.body.appendChild(notificationEl);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notificationEl.remove();
+    }, 3000);
+}
 
-    raceSocket.onopen = function(e) {
-        console.log('Race WebSocket connection established');
-        // Send message to start the race
-        raceSocket.send(JSON.stringify({
-            'type': 'start_race',
-            'lobby_id': lobbyId
-        }));
-    };
-
-    raceSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        if (data.type === 'race_started') {
-            alert('Race has started! Players can now join.');
+// Function to update lobby status in the UI
+function updateLobbyStatus(lobbyId, raceStarted) {
+    const lobbyEl = document.querySelector(`[data-lobby-id="${lobbyId}"]`);
+    if (lobbyEl) {
+        // Find and update the start race button
+        const startBtn = lobbyEl.querySelector('.start-race-btn');
+        if (startBtn) {
+            startBtn.innerHTML = '<i class="fas fa-check"></i> Race Started';
+            startBtn.disabled = true;
+            startBtn.style.backgroundColor = 'rgba(144, 200, 60, 0.3)';
         }
-    };
+        
+        // Update status indicator if it exists
+        const statusEl = lobbyEl.querySelector('.status-indicator');
+        if (statusEl) {
+            statusEl.className = 'status-indicator active';
+            statusEl.textContent = 'Race Started';
+        }
+    }
+}
 
-    raceSocket.onerror = function(e) {
-        console.error('WebSocket error:', e);
-        alert('Error starting race. Please try again.');
-    };
-
-    raceSocket.onclose = function(e) {
-        console.log('Race WebSocket connection closed');
-    };
+function startRace(lobbyId) {
+    // Prevent multiple clicks
+    const startButtons = document.querySelectorAll('.start-race-btn');
+    startButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    });
+    
+    // Show loading message
+    showMessage('Starting race...', 'info');
+    
+    fetch(`/lobby/${lobbyId}/start-race/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Race started successfully! Players are being redirected to the game.', 'success');
+            
+            // Try to broadcast the race started event manually as a fallback
+            try {
+                fetch(`/lobby/${lobbyId}/notify-race-started/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                }).catch(e => console.log('Notification API call optional, continuing...'));
+            } catch (e) {
+                console.log('Notification API error');
+            }
+            
+            // Update UI without redirecting
+            updateLobbyStatus(lobbyId, true);
+            
+            // Re-enable start buttons after a short delay
+            setTimeout(() => {
+                startButtons.forEach(btn => {
+                    btn.disabled = true; // Keep disabled since race is started
+                    btn.innerHTML = '<i class="fas fa-check"></i> Race Started';
+                    btn.classList.add('race-started');
+                });
+            }, 1500);
+        } else {
+            showMessage('Error starting race: ' + data.error, 'error');
+            // Re-enable start buttons
+            startButtons.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Race';
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error starting race:', error);
+        showMessage('Error starting race. Please try again.', 'error');
+        // Re-enable start buttons
+        startButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Start Race';
+        });
+    });
 }
 
 // Close modal when clicking outside

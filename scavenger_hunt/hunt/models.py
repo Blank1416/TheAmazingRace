@@ -10,13 +10,15 @@ def generate_lobby_code():
 
 class Lobby(models.Model):
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=6, unique=True)
+    code = models.CharField(max_length=10, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_accessed = models.DateTimeField(null=True, blank=True)
     teams = models.ManyToManyField('Team', related_name='participating_lobbies')
     is_active = models.BooleanField(default=True)
     hunt_started = models.BooleanField(default=False)
     start_time = models.DateTimeField(null=True, blank=True)
-    race = models.ForeignKey('Race', on_delete=models.CASCADE, null=True)
+    race = models.ForeignKey('Race', on_delete=models.SET_NULL, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -32,6 +34,9 @@ class Lobby(models.Model):
     def __str__(self):
         return f"Lobby {self.code}"
     
+    class Meta:
+        verbose_name_plural = "Lobbies"
+
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
     code = models.CharField(max_length=6, unique=True)
@@ -99,7 +104,7 @@ class TeamMember(models.Model):
         unique_together = ('team', 'role')  # Prevent duplicate members in a team
 
     def __str__(self):
-        return f"{self.role} - {self.team.name}"
+        return f"{self.role} - {self.team.name if self.team else 'No team'}"
 
 class Submission(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="submissions")
@@ -150,9 +155,83 @@ class Question(models.Model):
     text = models.TextField()
     answer = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
+    requires_photo = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Question for {self.zone.name}"
 
     class Meta:
         ordering = ['created_at']
+
+class TeamProgress(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='progress')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='progress')
+    completed = models.BooleanField(default=False)
+    completion_time = models.DateTimeField(null=True, blank=True)
+    photo = models.ImageField(upload_to='question_photos/', null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('team', 'question')
+        ordering = ['completion_time']
+    
+    def __str__(self):
+        status = "Completed" if self.completed else "Not completed"
+        return f"{self.team.name} - {self.question} - {status}"
+
+class TeamAnswer(models.Model):
+    """Tracks team answers to questions"""
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='team_answers')
+    answered_correctly = models.BooleanField(default=False)
+    answered_at = models.DateTimeField(auto_now_add=True)
+    attempts = models.IntegerField(default=0)
+    points_awarded = models.IntegerField(default=0)
+    requires_photo = models.BooleanField(default=False)
+    photo = models.ImageField(upload_to='answer_photos/', null=True, blank=True)
+    photo_uploaded = models.BooleanField(default=False)  # Flag for tracking if a photo was uploaded
+    
+    class Meta:
+        unique_together = ('team', 'question')
+        ordering = ['answered_at']
+    
+    def __str__(self):
+        status = "correct" if self.answered_correctly else "incorrect"
+        return f"{self.team.name} - {self.question.text[:20]} - {status}"
+
+class TeamRaceProgress(models.Model):
+    """Tracks which question a team is currently on in a race"""
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='race_progress')
+    race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name='team_progress')
+    current_question_index = models.IntegerField(default=0)
+    total_points = models.IntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+    photo_questions_completed = models.JSONField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('team', 'race')
+    
+    def __str__(self):
+        return f"{self.team.name} - Race {self.race.name} - Question #{self.current_question_index+1}"
+
+class Answer(models.Model):
+    """Tracks answers given by teams to questions"""
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='question_answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='answers')
+    answer_text = models.CharField(max_length=255, blank=True, null=True)
+    answered_correctly = models.BooleanField(default=False)
+    attempts = models.IntegerField(default=0)
+    points_awarded = models.IntegerField(default=0)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    requires_photo = models.BooleanField(default=False)
+    photo = models.ImageField(upload_to='answer_photos/', null=True, blank=True)
+    matched_with = models.CharField(max_length=255, blank=True, null=True)
+    match_type = models.CharField(max_length=50, blank=True, null=True)
+    
+    class Meta:
+        unique_together = ('team', 'question')
+        ordering = ['submitted_at']
+    
+    def __str__(self):
+        status = "correct" if self.answered_correctly else "incorrect"
+        return f"{self.team.name} - {self.question} - {status}"
