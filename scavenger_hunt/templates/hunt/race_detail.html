@@ -360,8 +360,10 @@
 }
 
 .accordion-header {
-    display: flex;
-    justify-content: space-between;
+    /*display: flex;
+    justify-content: space-between;*/
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: center;
     padding: 15px 20px;
     cursor: pointer;
@@ -406,7 +408,7 @@
     position: absolute;
     right: 15px;
     top: 40%;
-    /* transform: translateY(-50%) translateX(10px); */
+    transform: translateY(-50%) translateX(10px);
     display: flex;
     gap: 6px;
     opacity: 0;
