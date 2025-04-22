@@ -357,17 +357,20 @@ def home(request):
         
         if not code:
             print("No code received in POST request")
-            return render(request, 'hunt/join_game_session.html', {'error': 'Please enter a game code.'})
+            messages.error(request, 'Please enter a game code.')
+            return render(request, 'hunt/join_game_session.html')
             
         try:
             lobby = Lobby.objects.filter(code=code).first()
             if lobby is None:
                 print(f"No lobby found with code: {code}")
-                return render(request, 'hunt/join_game_session.html', {'error': 'Invalid lobby code. Please try again.'})
+                messages.error(request, 'Invalid lobby code. Please try again.')
+                return render(request, 'hunt/join_game_session.html')
             
             if not lobby.is_active:
                 print(f"Lobby found but inactive: {lobby.name}")
-                return render(request, 'hunt/join_game_session.html', {'error': 'This lobby is no longer active.'})
+                messages.error(request, 'This lobby is no longer active.')
+                return render(request, 'hunt/join_game_session.html')
             
             print(f"Found active lobby: {lobby.name}")
             request.session['lobby_code'] = code
@@ -375,7 +378,8 @@ def home(request):
             
         except Exception as e:
             print(f"Error looking up lobby: {str(e)}")
-            return render(request, 'hunt/join_game_session.html', {'error': 'An error occurred. Please try again.'})
+            messages.error(request, 'An error occurred. Please try again.')
+            return render(request, 'hunt/join_game_session.html')
     return render(request, 'hunt/join_game_session.html')
 
 def user_login(request):
@@ -388,8 +392,8 @@ def user_login(request):
             login(request, user)
             return redirect('leader_dashboard')
         else:
+            messages.error(request, 'Invalid credentials. Please try again.')
             return render(request, 'hunt/login.html', {
-                'error': 'Invalid credentials',
                 'form': {'username': username}
             })
     return render(request, 'hunt/login.html')
@@ -1737,8 +1741,29 @@ def check_answer(request, lobby_id=None, question_id=None):
                                 next_url = f"/race/{race.id}/questions/?team_code={team.code}&player_name={player_name}"
                                 response_data['next_url'] = next_url
                     else:
-                        # If this was the last question, go to race complete
-                        response_data['next_url'] = reverse('race_complete')
+                        # If this was the last question, go to race complete with total points
+                        try:
+                            # Get the total points for this team and race
+                            total_points = 0
+                            if team_race_progress:
+                                total_points = team_race_progress.total_points
+                            
+                            # Save the total score in the session for race_complete view
+                            request.session['total_score'] = total_points
+                            
+                            # Add race completion URL with explicit flags
+                            response_data['next_url'] = reverse('race_complete')
+                            response_data['is_last_question'] = True
+                            response_data['is_race_complete'] = True
+                            response_data['total_score'] = total_points
+                            
+                            # Add message to make it visible in debugging
+                            response_data['message'] = "This is the last question. Race complete!"
+                            
+                            logger.info(f"Team {team.name} completed all questions with total score: {total_points}")
+                        except Exception as e:
+                            logger.error(f"Error preparing race completion: {str(e)}")
+                            response_data['next_url'] = reverse('race_complete')
                 
                 # Return JSON response with all the data
                 logger.info(f"Returning answer check response: {response_data}")
@@ -1882,6 +1907,28 @@ def upload_photo(request, lobby_id, question_id):
                 next_url = f"/studentQuestion/{lobby_id}/{next_q_id}/"
                 logger.info(f"Upload_photo: Setting direct next_url to: {next_url}")
             else:
+                # No next question, this is the last one - go to race complete with total score
+                try:
+                    # Get or create team race progress record
+                    team_race_progress = TeamRaceProgress.objects.filter(team=team, race=lobby.race).first()
+                    total_points = 0
+                    
+                    if team_race_progress:
+                        total_points = team_race_progress.total_points
+                    else:
+                        # If no progress record, calculate total points from answers
+                        total_points = TeamAnswer.objects.filter(
+                            team=team,
+                            question__zone__race=lobby.race,
+                            answered_correctly=True
+                        ).aggregate(Sum('points_awarded'))['points_awarded__sum'] or 0
+                    
+                    # Store total score in session
+                    request.session['total_score'] = total_points
+                    logger.info(f"Upload_photo: Team {team.name} completed all questions with total score: {total_points}")
+                except Exception as e:
+                    logger.error(f"Upload_photo: Error calculating total score: {str(e)}")
+                
                 next_url = "/race-complete/"
                 logger.info(f"Upload_photo: No next question, setting next_url to: {next_url}")
             
@@ -1891,7 +1938,11 @@ def upload_photo(request, lobby_id, question_id):
                 'show_next_button': True,  # Always show next button
                 'photo_uploaded': True,    # Confirm photo is recorded
                 'question_completed': True,# Mark as completed
-                'next_url': next_url
+                'next_url': next_url,
+                # Add explicit flags for last question case
+                'is_last_question': next_q_id is None,
+                'is_race_complete': next_q_id is None,
+                'total_score': request.session.get('total_score', 0) if next_q_id is None else 0
             })
             
         except TeamMember.DoesNotExist:
@@ -1907,6 +1958,7 @@ def upload_photo(request, lobby_id, question_id):
 def race_complete(request):
     """Display race completion page"""
     player_name = request.session.get('player_name')
+    total_score = request.session.get('total_score', 0)
     
     # If accessed from admin dashboard, show an example view
     if not player_name and request.user.is_authenticated:
@@ -1919,7 +1971,8 @@ def race_complete(request):
         return redirect('join_game_session')
     
     return render(request, 'hunt/race_complete.html', {
-        'player_name': player_name
+        'player_name': player_name,
+        'total_score': total_score
     })
 
 def race_questions(request, race_id):
@@ -2742,3 +2795,66 @@ def trigger_leaderboard_update_internal(race_id=None):
     except Exception as e:
         logger.error(f"Error in trigger_leaderboard_update_internal: {str(e)}")
         return False
+
+@csrf_exempt
+def question_answers_api(request):
+    """API endpoint to get a team's answers for a race"""
+    # Check if method is GET
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+    
+    # Get parameters from request
+    team_code = request.GET.get('team_code')
+    race_id = request.GET.get('race_id')
+    
+    if not team_code or not race_id:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Missing required parameters. Both team_code and race_id are required.'
+        }, status=400)
+    
+    try:
+        # Get the team and race
+        team = Team.objects.get(code=team_code)
+        race = Race.objects.get(id=race_id)
+        
+        # Get all answers for this team in this race
+        answers = TeamAnswer.objects.filter(
+            team=team,
+            question__zone__race=race
+        ).select_related('question')
+        
+        # Format the answers data
+        answers_data = {}
+        for answer in answers:
+            answers_data[answer.question.id] = {
+                'attempts': answer.attempts,
+                'points_awarded': answer.points_awarded,
+                'answered_correctly': answer.answered_correctly,
+                'photo_uploaded': answer.photo_uploaded,
+                'question_text': answer.question.text[:50] + '...'  # Include a snippet for debugging
+            }
+        
+        # Calculate total score
+        total_score = answers.filter(answered_correctly=True).aggregate(
+            total=Sum('points_awarded'))['total'] or 0
+        
+        # Get team race progress
+        progress = TeamRaceProgress.objects.filter(team=team, race=race).first()
+        current_question_index = progress.current_question_index if progress else 0
+        
+        return JsonResponse({
+            'success': True,
+            'answers': answers_data,
+            'total_score': total_score,
+            'current_question_index': current_question_index
+        })
+        
+    except Team.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Team not found'}, status=404)
+    except Race.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Race not found'}, status=404)
+    except Exception as e:
+        # Log the error
+        logger.error(f"Error in question_answers_api: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
