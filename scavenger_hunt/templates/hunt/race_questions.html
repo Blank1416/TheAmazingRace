@@ -62,9 +62,10 @@
                                         {% for question in questions %}
                                                     <div class="question-card" id="question-{{ forloop.counter0 }}" data-question-id="{{ question.id }}" style="display: {% if forloop.first %}block{% else %}none{% endif %};">
                                                 <h3 class="question-title">Question {{ forloop.counter }}</h3>
-                                                        <div class="question-text">{{ question.text }}</div>
-                                                        <textarea id="speech-text" rows="4" cols="50">Enter text here</textarea>
-                                                        <button onclick = "speak()">Speak</button>
+                                                        <div class="question-text">
+                                                            {{ question.text }}
+                                                            <button onclick = "speak({{ question.text }})">Speak</button>
+                                                        </div>
                                                         
                                                         <form id="answer-form-{{ forloop.counter0 }}" class="answer-form mt-4">
                                                             <div class="form-group">
@@ -1668,10 +1669,9 @@ function updateTimerDisplay(remainingSeconds) {
         }
     }
 
-    function speak(){
-        const text = document.getElementById('speech-text').value;
-        const msg = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(msg);
+    function speak(text) {
+    const msg = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(msg);
     }
 </script>
 {% endblock %} 
