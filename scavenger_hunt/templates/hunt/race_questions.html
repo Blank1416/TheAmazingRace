@@ -62,7 +62,8 @@
                                         {% for question in questions %}
                                                     <div class="question-card" id="question-{{ forloop.counter0 }}" data-question-id="{{ question.id }}" style="display: {% if forloop.first %}block{% else %}none{% endif %};">
                                                 <h3 class="question-title">Question {{ forloop.counter }}</h3>
-                                                        <div class="question-text" id="speech-text">{{ question.text }}</div>
+                                                        <div class="question-text">{{ question.text }}</div>
+                                                        <textarea id="speech-text" rows="4" cols="50">Enter text here</textarea>
                                                         <button onclick = "speak()">Speak</button>
                                                         
                                                         <form id="answer-form-{{ forloop.counter0 }}" class="answer-form mt-4">
