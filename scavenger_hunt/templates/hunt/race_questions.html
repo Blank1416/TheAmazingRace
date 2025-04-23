@@ -64,8 +64,7 @@
                                                 <h3 class="question-title">Question {{ forloop.counter }}</h3>
                                                         <div class="question-text">
                                                             {{ question.text }}
-                                                            <button onclick="speak('{{ question.text|escapejs }}')">Speak</button>
-                                                            <button onclick="speak('Race')">Race</button>
+                                                            <button type="button" class="btn btn-success" onclick="speak('{{ question.text|escapejs }}')">🔊</button>
                                                         </div>
                                                         
                                                         <form id="answer-form-{{ forloop.counter0 }}" class="answer-form mt-4">
